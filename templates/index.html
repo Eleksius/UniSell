@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<!-- Фильтры -->
+<div class="d-flex mb-4 overflow-auto pb-2">
+    <a href="/" class="category-chip {% if not request.args.get('category_id') %}active{% endif %}">Все</a>
+    {% for cat in categories %}
+    <a href="{{ url_for('index', category_id=cat.id) }}"
+       class="category-chip {% if request.args.get('category_id')|int == cat.id %}active{% endif %}">
+       {{ cat.name }}
+    </a>
+    {% endfor %}
+</div>
+
+<!-- Сетка товаров -->
+<div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-4">
+    {% for product in products %}
+    <div class="col">
+        <div class="card h-100 product-card">
+            <div class="img-container">
+                {% if product.images %}
+                <img src="{{ url_for('static', filename='uploads/' + product.images[0].filename) }}" alt="{{ product.title }}">
+                {% else %}
+                <div class="d-flex align-items-center justify-content-center h-100 text-muted">Нет фото</div>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <h5 class="card-title fw-bold">{{ product.price }} ₽</h5>
+                <p class="card-text text-truncate mb-1">{{ product.title }}</p>
+                <p class="text-muted small mb-3">{{ product.category.name }}</p>
+                <a href="{{ product.contact_link }}" class="btn btn-outline-primary btn-sm w-100">Написать продавцу</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if not products %}
+<div class="text-center mt-5">
+    <p class="text-muted">Здесь пока ничего нет. Будь первым!</p>
+</div>
+{% endif %}
+
+{% endblock %}
