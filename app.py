@@ -3,7 +3,7 @@ from flask import Flask, render_template, request, redirect, url_for
 from werkzeug.utils import secure_filename
 from models import db, Product, Category, ProductImage
 
-#db and app init
+#база данных и само приложения
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///market.db'
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
@@ -14,7 +14,7 @@ db.init_app(app)
 def index():
     category_id = request.args.get('category_id', type=int)
 
-    # Базовая фильтрация
+    # Класическая фильтрация
     if category_id:
         products = Product.query.filter_by(category_id=category_id).all()
     else:
