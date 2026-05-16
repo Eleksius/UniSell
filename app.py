@@ -1,63 +1,196 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from models import db, Product, Category, ProductImage
+from models import db, User, Product, Category, ProductImage
 
-#база данных и само приложения
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'your_super_secret_key_123'  # Нужно для работы сессий
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///market.db'
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
+
 db.init_app(app)
 
+# Настройка Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+
+# --- МАРШРУТЫ АВТОРИЗАЦИИ ---
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+
+        if User.query.filter_by(username=username).first():
+            flash('Пользователь с таким логином уже существует.', 'danger')
+            return redirect(url_for('register'))
+
+        hashed_pw = generate_password_hash(password)
+        new_user = User(username=username, password_hash=hashed_pw)
+        db.session.add(new_user)
+        db.session.commit()
+        return redirect(url_for('login'))
+
+    return render_template('register.html')
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+
+        user = User.query.filter_by(username=username).first()
+        if user and check_password_hash(user.password_hash, password):
+            login_user(user)
+            return redirect(url_for('index'))
+
+        flash('Неверный логин или пароль.', 'danger')
+        return redirect(url_for('login'))
+
+    return render_template('login.html')
+
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('index'))
+
+
+# --- ОСНОВНОЙ ФУНКЦИОНАЛ ---
 
 @app.route('/')
 def index():
     category_id = request.args.get('category_id', type=int)
-
-    # Класическая фильтрация
-    if category_id:
-        products = Product.query.filter_by(category_id=category_id).all()
-    else:
-        products = Product.query.all()
-
-    categories = Category.query.all()
-    return render_template('index.html', products=products, categories=categories)
+    products = Product.query.filter_by(category_id=category_id).all() if category_id else Product.query.all()
+    return render_template('index.html', products=products, categories=Category.query.all())
 
 
 @app.route('/add', methods=['GET', 'POST'])
+@login_required  # Только залогиненные могут добавлять
 def add_product():
     if request.method == 'POST':
-        # Создаем товар
         new_product = Product(
             title=request.form['title'],
             description=request.form['description'],
             price=request.form['price'],
             contact_link=request.form['contact'],
-            category_id=request.form['category']
+            category_id=request.form['category'],
+            user_id=current_user.id  # Привязываем к текущему юзеру
         )
         db.session.add(new_product)
-        db.session.flush()  # Получаем ID товара до коммита
+        db.session.flush()
 
-        # Обработка нескольких фото
         files = request.files.getlist('photos')
         for file in files:
             if file and file.filename:
                 filename = secure_filename(file.filename)
                 file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-                img = ProductImage(filename=filename, product_id=new_product.id)
-                db.session.add(img)
+                db.session.add(ProductImage(filename=filename, product_id=new_product.id))
 
         db.session.commit()
         return redirect(url_for('index'))
+    return render_template('add_product.html', categories=Category.query.all())
+
+
+# --- ТРЕБОВАНИЕ: REST API ---
+# Этот эндпоинт отдает список товаров в формате JSON. Отлично подойдет и для Алисы!
+@app.route('/api/products', methods=['GET'])
+def get_products_api():
+    products = Product.query.all()
+    output = []
+    for p in products:
+        p_data = {
+            'id': p.id,
+            'title': p.title,
+            'price': p.price,
+            'description': p.description,
+            'category': p.category.name,
+            'seller': p.seller.username,
+            'images': [url_for('static', filename='uploads/' + img.filename, _external=True) for img in p.images]
+        }
+        output.append(p_data)
+    return jsonify({'products': output})
+
+
+# ==========================================
+# 4. РЕДАКТИРОВАНИЕ И УДАЛЕНИЕ ОБЪЯВЛЕНИЙ
+# ==========================================
+
+@app.route('/edit/<int:product_id>', methods=['GET', 'POST'])
+@login_required
+def edit_product(product_id):
+    # Ищем товар по ID, если не нашли — вернется ошибка 404
+    product = Product.query.get_or_404(product_id)
+
+    # Строгая проверка: является ли текущий юзер хозяином товара
+    if product.user_id != current_user.id:
+        flash('Вы не можете редактировать чужие объявления!', 'danger')
+        return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        product.title = request.form.get('title')
+        product.category_id = request.form.get('category')
+        product.price = request.form.get('price', 0)
+        product.description = request.form.get('description')
+        product.contact_link = request.form.get('contact')
+
+        # Если пользователь решил догрузить еще фото
+        files = request.files.getlist('photos')
+        for file in files:
+            if file and file.filename:
+                filename = secure_filename(file.filename)
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                db.session.add(ProductImage(filename=filename, product_id=product.id))
+
+        db.session.commit()
+        flash('Объявление успешно обновлено!', 'success')
+        return redirect(url_for('index'))
 
     categories = Category.query.all()
-    return render_template('add_product.html', categories=categories)
+    return render_template('edit_product.html', product=product, categories=categories)
+
+
+@app.route('/delete/<int:product_id>', methods=['POST', 'GET'])
+@login_required
+def delete_product(product_id):
+    product = Product.query.get_or_404(product_id)
+
+    # Проверка прав
+    if product.user_id != current_user.id:
+        flash('Вы не можете удалить чужое объявление!', 'danger')
+        return redirect(url_for('index'))
+
+    # Удаляем файлы картинок с жесткого диска сервера, чтобы не забивать место
+    for img in product.images:
+        try:
+            os.remove(os.path.join(app.config['UPLOAD_FOLDER'], img.filename))
+        except FileNotFoundError:
+            pass  # Если файла физически нет, просто идем дальше
+        db.session.delete(img)
+
+    # Удаляем сам товар из базы
+    db.session.delete(product)
+    db.session.commit()
+
+    flash('Объявление успешно удалено.', 'success')
+    return redirect(url_for('index'))
 
 
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-        # Добавим категории для теста, если их нет
         if not Category.query.first():
             db.session.add_all([Category(name="Учебники"), Category(name="Техника"), Category(name="Спорт")])
             db.session.commit()

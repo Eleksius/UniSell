@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 card p-4 shadow-sm mt-4">
+        <h3 class="text-center fw-bold mb-4">Редактировать объявление</h3>
+
+        <form method="POST" enctype="multipart/form-data">
+            <div class="mb-3">
+                <label class="form-label fw-600">Название товара</label>
+                <input type="text" name="title" class="form-control" value="{{ product.title }}" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-600">Категория</label>
+                <select name="category" class="form-select" required>
+                    {% for cat in categories %}
+                        <option value="{{ cat.id }}" {% if cat.id == product.category_id %}selected{% endif %}>
+                            {{ cat.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-600">Цена (₽)</label>
+                <input type="number" name="price" class="form-control" value="{{ product.price }}" min="0" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-600">Описание</label>
+                <textarea name="description" class="form-control" rows="4" required>{{ product.description }}</textarea>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-600">Ссылка для связи</label>
+                <input type="text" name="contact" class="form-control" value="{{ product.contact_link }}" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label d-block fw-600">Текущие фото (всего: {{ product.images|length }})</label>
+                <div class="d-flex gap-2 flex-wrap">
+                    {% for img in product.images %}
+                        <img src="{{ url_for('static', filename='uploads/' + img.filename) }}" class="rounded" width="80" height="80" style="object-fit: cover;">
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-600">Добавить новые фото</label>
+                <input type="file" name="photos" class="form-control" multiple accept="image/*">
+            </div>
+
+            <div class="d-flex gap-2">
+                <a href="/" class="btn btn-outline-secondary w-50 py-2 rounded-pill">Отмена</a>
+                <button type="submit" class="btn btn-primary w-50 py-2 rounded-pill fw-bold">Сохранить</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

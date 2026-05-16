@@ -1,7 +1,17 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<!-- Фильтры -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
 <div class="d-flex mb-4 overflow-auto pb-2">
     <a href="/" class="category-chip {% if not request.args.get('category_id') %}active{% endif %}">Все</a>
     {% for cat in categories %}
@@ -12,7 +22,6 @@
     {% endfor %}
 </div>
 
-<!-- Сетка товаров -->
 <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-4">
     {% for product in products %}
     <div class="col">
@@ -24,11 +33,29 @@
                 <div class="d-flex align-items-center justify-content-center h-100 text-muted">Нет фото</div>
                 {% endif %}
             </div>
-            <div class="card-body">
-                <h5 class="card-title fw-bold">{{ product.price }} ₽</h5>
-                <p class="card-text text-truncate mb-1">{{ product.title }}</p>
-                <p class="text-muted small mb-3">{{ product.category.name }}</p>
-                <a href="{{ product.contact_link }}" class="btn btn-outline-primary btn-sm w-100">Написать продавцу</a>
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title fw-bold mb-1">{{ product.price }} ₽</h5>
+                <p class="card-text text-truncate mb-1" title="{{ product.title }}">{{ product.title }}</p>
+                <p class="text-muted small mb-3">Категория: {{ product.category.name }}<br>Продавец: {{ product.seller.username }}</p>
+
+                <div class="mt-auto">
+                    <a href="{{ product.contact_link }}" class="btn btn-outline-primary btn-sm w-100 {% if current_user.is_authenticated and product.user_id == current_user.id %}mb-2{% endif %}">
+                        Написать продавцу
+                    </a>
+
+                    {% if current_user.is_authenticated and product.user_id == current_user.id %}
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('edit_product', product_id=product.id) }}" class="btn btn-outline-secondary btn-sm w-50">
+                            Редактировать
+                        </a>
+                        <a href="{{ url_for('delete_product', product_id=product.id) }}"
+                           class="btn btn-outline-danger btn-sm w-50"
+                           onclick="return confirm('Вы уверены, что хотите окончательно удалить это объявление?');">
+                            Удалить
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>

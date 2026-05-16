@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 card p-4 shadow-sm mt-4">
+        <h3 class="text-center fw-bold mb-4">Подать объявление</h3>
+
+        <form method="POST" enctype="multipart/form-data">
+            <div class="mb-3">
+                <label class="form-label fw-600">Название товара</label>
+                <input type="text" name="title" class="form-control" placeholder="Например: Учебник по физике 10 класс" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-600">Категория</label>
+                <select name="category" class="form-select" required>
+                    <option value="" selected disabled>Выберите категорию</option>
+                    {% for cat in categories %}
+                        <option value="{{ cat.id }}">{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-600">Цена (₽)</label>
+                <input type="number" name="price" class="form-control" placeholder="0" min="0" required>
+                <div class="form-text">Оставьте 0, если отдаете бесплатно или это обмен.</div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-600">Описание</label>
+                <textarea name="description" class="form-control" rows="4" placeholder="Опишите состояние, автора, год издания или другие важные детали..." required></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-600">Ссылка для связи</label>
+                <input type="text" name="contact" class="form-control" placeholder="Например: https://t.me/username" required>
+                <div class="form-text">Полная ссылка на твой Telegram или ВКонтакте.</div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-600">Фотографии товара</label>
+                <input type="file" name="photos" class="form-control" multiple accept="image/*">
+                <div class="form-text">Можно выбрать сразу несколько изображений зажав Ctrl.</div>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 py-2 rounded-pill fw-bold">Опубликовать объявление</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
