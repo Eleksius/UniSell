@@ -1,7 +1,75 @@
 {% extends 'base.html' %}
 {% block content %}
+
+<style>
+    .image-manage-wrapper {
+        position: relative;
+        display: inline-block;
+        width: 100px;
+        height: 100px;
+    }
+    .image-manage-wrapper img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 8px;
+        transition: opacity 0.2s, filter 0.2s;
+    }
+
+    /* Скрываем чекбокс, но он должен остаться кликабельным */
+    .delete-checkbox {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        opacity: 0;
+        z-index: 11;
+        cursor: pointer;
+    }
+
+    /* Кнопка-крестик (Красная с белым 'X') */
+    .delete-indicator {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        background: #dc3545; /* Bootstrap Red */
+        color: white;
+        border-radius: 50%;
+        width: 22px;
+        height: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 14px;
+        pointer-events: none; /* Пропускаем клик сквозь иконку в чекбокс */
+        opacity: 0; /* Изначально скрыт, появляется при наведении */
+        transition: opacity 0.2s;
+        z-index: 10;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    /* При наведении на картинку - показываем красный крестик */
+    .image-manage-wrapper:hover .delete-indicator {
+        opacity: 1;
+    }
+
+    /* Когда чекбокс ВЫБРАН (фото отмечено на удаление) */
+    .delete-checkbox:checked + .delete-indicator {
+        opacity: 1;
+        background: white; /* Фон меняется */
+        color: #dc3545;    /* Крестик становится красным */
+        border: 2px solid #dc3545;
+    }
+
+    /* Затемнение фото при выбранном чекбоксе */
+    .delete-checkbox:checked + .delete-indicator + img {
+        opacity: 0.3;
+        filter: grayscale(100%);
+    }
+</style>
+
 <div class="row justify-content-center">
-    <div class="col-md-6 card p-4 shadow-sm mt-4">
+    <div class="col-md-6 card p-4 shadow-sm mt-4 mb-5" style="border-radius: 12px;">
         <h3 class="text-center fw-bold mb-4">Редактировать объявление</h3>
 
         <form method="POST" enctype="multipart/form-data">
@@ -37,10 +105,17 @@
             </div>
 
             <div class="mb-3">
-                <label class="form-label d-block fw-600">Текущие фото (всего: {{ product.images|length }})</label>
+                <label class="form-label d-block fw-600 mb-2">Управление текущими фото (всего: {{ product.images|length }})</label>
+                <div class="form-text mb-3">Наведи на фото и отметь красным крестиком те, которые хочешь удалить.</div>
+
                 <div class="d-flex gap-2 flex-wrap">
                     {% for img in product.images %}
-                        <img src="{{ url_for('static', filename='uploads/' + img.filename) }}" class="rounded" width="80" height="80" style="object-fit: cover;">
+                        <div class="image-manage-wrapper">
+                            <input type="checkbox" name="delete_images" value="{{ img.id }}" class="delete-checkbox" id="del_img_{{ img.id }}">
+                            <div class="delete-indicator">✕</div>
+
+                            <img src="{{ url_for('static', filename='uploads/' + img.filename) }}" alt="Фото товара">
+                        </div>
                     {% endfor %}
                 </div>
             </div>
@@ -52,7 +127,7 @@
 
             <div class="d-flex gap-2">
                 <a href="/" class="btn btn-outline-secondary w-50 py-2 rounded-pill">Отмена</a>
-                <button type="submit" class="btn btn-primary w-50 py-2 rounded-pill fw-bold">Сохранить</button>
+                <button type="submit" class="btn btn-primary w-50 py-2 rounded-pill fw-bold">Сохранить изменения</button>
             </div>
         </form>
     </div>

@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="row mt-4 mb-5">
+    <div class="col-md-6 mb-4">
+        {% if product.images %}
+            <div id="productCarousel" class="carousel slide shadow-sm rounded-4 overflow-hidden" data-bs-ride="carousel" style="background-color: #f8f9fa;">
+                <div class="carousel-inner">
+                    {% for img in product.images %}
+                    <div class="carousel-item {% if loop.first %}active{% endif %}" style="height: 450px;">
+                        <img src="{{ url_for('static', filename='uploads/' + img.filename) }}" class="d-block w-100 h-100" style="object-fit: contain;" alt="Фото товара">
+                    </div>
+                    {% endfor %}
+                </div>
+
+                {% if product.images|length > 1 %}
+                <button class="carousel-control-prev" type="button" data-bs-target="#productCarousel" data-bs-slide="prev">
+                    <span class="carousel-control-prev-icon" aria-hidden="true" style="filter: invert(100%);"></span>
+                    <span class="visually-hidden">Предыдущая</span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#productCarousel" data-bs-slide="next">
+                    <span class="carousel-control-next-icon" aria-hidden="true" style="filter: invert(100%);"></span>
+                    <span class="visually-hidden">Следующая</span>
+                </button>
+                {% endif %}
+            </div>
+        {% else %}
+            <div class="d-flex align-items-center justify-content-center bg-light rounded-4 shadow-sm" style="height: 450px;">
+                <span class="text-muted fs-5">Нет фото</span>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="col-md-6">
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/" class="text-decoration-none">Главная</a></li>
+            <li class="breadcrumb-item"><a href="/?category_id={{ product.category.id }}" class="text-decoration-none">{{ product.category.name }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Объявление</li>
+          </ol>
+        </nav>
+
+        <h2 class="fw-bold mb-3">{{ product.title }}</h2>
+        <h3 class="text-primary fw-bold mb-4">{{ product.price }} ₽</h3>
+
+        <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px; background-color: #ffffff;">
+            <div class="card-body p-4">
+                <h5 class="fw-bold mb-3">Описание</h5>
+                <p class="card-text" style="white-space: pre-wrap; font-size: 1.05rem; color: #444;">{{ product.description }}</p>
+            </div>
+        </div>
+
+        <div class="mb-4 bg-light p-3 rounded-4">
+            <p class="text-muted mb-0">Продавец: <strong class="text-dark">{{ product.seller.username }}</strong></p>
+        </div>
+
+        <a href="{{ product.contact_link }}" class="btn btn-primary btn-lg w-100 rounded-pill fw-bold mb-3 shadow-sm" target="_blank">
+            Написать продавцу
+        </a>
+
+        {% if current_user.is_authenticated and product.user_id == current_user.id %}
+        <div class="d-flex gap-2 mt-3">
+            <a href="{{ url_for('edit_product', product_id=product.id) }}" class="btn btn-outline-secondary w-50 rounded-pill">
+                Редактировать
+            </a>
+            <button type="button" class="btn btn-outline-danger w-50 rounded-pill" data-bs-toggle="modal" data-bs-target="#deleteModal" data-product-id="{{ product.id }}" data-product-title="{{ product.title }}">
+                Удалить
+            </button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius: 15px; border: none;">
+      <div class="modal-header border-0 pt-4 px-4">
+        <h5 class="modal-title fw-bold text-danger">Удаление объявления</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body px-4 fs-6">
+        Вы действительно хотите удалить объявление <strong id="deleteModalProductTitle"></strong>?
+      </div>
+      <div class="modal-footer border-0 pb-4 px-4">
+        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Отмена</button>
+        <a href="#" id="confirmDeleteButton" class="btn btn-danger rounded-pill px-4 fw-bold">Удалить</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const deleteModal = document.getElementById('deleteModal')
+if (deleteModal) {
+  deleteModal.addEventListener('show.bs.modal', event => {
+    const button = event.relatedTarget
+    const productId = button.getAttribute('data-product-id')
+    document.getElementById('deleteModalProductTitle').textContent = button.getAttribute('data-product-title')
+    document.getElementById('confirmDeleteButton').href = `/delete/${productId}`
+  })
+}
+</script>
+
+{% endblock %}

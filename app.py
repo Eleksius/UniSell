@@ -77,6 +77,13 @@ def index():
     return render_template('index.html', products=products, categories=Category.query.all())
 
 
+@app.route('/product/<int:product_id>')
+def product_detail(product_id):
+    # Ищем товар по ID. Если кто-то введет несуществующий ID, Flask выдаст ошибку 404
+    product = Product.query.get_or_404(product_id)
+    return render_template('product_detail.html', product=product)
+
+
 @app.route('/add', methods=['GET', 'POST'])
 @login_required  # Только залогиненные могут добавлять
 def add_product():
@@ -131,22 +138,37 @@ def get_products_api():
 @app.route('/edit/<int:product_id>', methods=['GET', 'POST'])
 @login_required
 def edit_product(product_id):
-    # Ищем товар по ID, если не нашли — вернется ошибка 404
     product = Product.query.get_or_404(product_id)
 
-    # Строгая проверка: является ли текущий юзер хозяином товара
+    # Строгая проверка прав
     if product.user_id != current_user.id:
         flash('Вы не можете редактировать чужие объявления!', 'danger')
         return redirect(url_for('index'))
 
     if request.method == 'POST':
+        # 1. Сначала обрабатываем УДАЛЕНИЕ выбранных фотографий
+        delete_images_ids = request.form.getlist('delete_images')  # Получаем список ID галочек
+        if delete_images_ids:
+            for img_id in delete_images_ids:
+                image_to_del = ProductImage.query.get(int(img_id))
+                # Дополнительная проверка: принадлежит ли фото этому товару
+                if image_to_del and image_to_del.product_id == product.id:
+                    # Чистим файл с диска
+                    try:
+                        os.remove(os.path.join(app.config['UPLOAD_FOLDER'], image_to_del.filename))
+                    except FileNotFoundError:
+                        pass
+                    # Чистим запись из БД
+                    db.session.delete(image_to_del)
+
+        # 2. Обновляем основные текстовые поля
         product.title = request.form.get('title')
         product.category_id = request.form.get('category')
         product.price = request.form.get('price', 0)
         product.description = request.form.get('description')
         product.contact_link = request.form.get('contact')
 
-        # Если пользователь решил догрузить еще фото
+        # 3. Обрабатываем ДОБАВЛЕНИЕ новых фото
         files = request.files.getlist('photos')
         for file in files:
             if file and file.filename:
