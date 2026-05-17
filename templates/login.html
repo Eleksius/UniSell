@@ -4,16 +4,6 @@
     <div class="col-md-4 card p-4 shadow-sm mt-5">
         <h3 class="text-center fw-bold mb-4">Вход в аккаунт</h3>
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            {% for category, message in messages %}
-              <div class="alert alert-{{ category }} small py-2" role="alert">
-                {{ message }}
-              </div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
-
         <form method="POST">
             <div class="mb-3">
                 <label class="form-label">Имя пользователя</label>
