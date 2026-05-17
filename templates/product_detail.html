@@ -7,8 +7,14 @@
             <div id="productCarousel" class="carousel slide shadow-sm rounded-4 overflow-hidden" data-bs-ride="carousel" style="background-color: #f8f9fa;">
                 <div class="carousel-inner">
                     {% for img in product.images %}
-                    <div class="carousel-item {% if loop.first %}active{% endif %} d-flex align-items-center justify-content-center" style="height: 450px; background-color: #f8f9fa;">
-                        <img src="{{ url_for('static', filename='uploads/' + img.filename) }}" class="d-block" style="max-width: 100%; max-height: 100%; width: auto; height: auto;">
+                    <div class="carousel-item {% if loop.first %}active{% endif %}" style="height: 450px; background-color: #f8f9fa;">
+
+                        <div class="d-flex align-items-center justify-content-center h-100 w-100">
+                            <img src="{{ url_for('static', filename='uploads/' + img.filename) }}"
+                                 class="d-block"
+                                 style="max-width: 100%; max-height: 100%; width: auto; height: auto;">
+                        </div>
+
                     </div>
                     {% endfor %}
                 </div>
@@ -47,7 +53,7 @@
             {% endif %}
         </div>
 
-        <h3 class="text-primary fw-bold mb-3">{{ product.price }} ₽</h3>
+        <h3 class="text-primary fw-bold mb-3">{{ product.price | format_price }} ₽</h3>
 
         <div class="d-flex gap-3 text-muted small mb-4">
             <span>📅 Опубликовано: <strong>{{ product.created_at.strftime('%d.%m.%Y в %H:%M') }}</strong></span>

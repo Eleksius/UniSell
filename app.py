@@ -25,6 +25,18 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 
+@app.template_filter('format_price')
+def format_price(value):
+    if value is None:
+        return "0"
+    try:
+        # Форматируем число с разделением тысяч запятыми (1,000,000),
+        # а затем заменяем запятые на красивые пробелы (1 000 000)
+        return "{:,}".format(int(value)).replace(",", " ")
+    except (ValueError, TypeError):
+        return value
+
+
 # --- МАРШРУТЫ АВТОРИЗАЦИИ ---
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -82,6 +94,10 @@ def index():
     max_price = request.args.get('max_price')
     sort_by = request.args.get('sort_by', 'new')  # По умолчанию сначала новые
 
+    # 1) ПОЛУЧАЕМ НОМЕР СТРАНИЦЫ
+    # Извлекаем параметр 'page' из URL (например, /?page=2). Если его нет, ставим 1.
+    page = request.args.get('page', 1, type=int)
+
     query = Product.query
 
     # Фильтры
@@ -92,7 +108,7 @@ def index():
     if max_price and max_price.isdigit():
         query = query.filter(Product.price <= int(max_price))
 
-    # 2) СОРТИРОВКА
+    # Сортировка
     if sort_by == 'price_asc':
         query = query.order_by(Product.price.asc())
     elif sort_by == 'price_desc':
@@ -100,17 +116,32 @@ def index():
     elif sort_by == 'views':
         query = query.order_by(Product.views.desc())
     else:  # 'new'
+        # Если у тебя в модели Product нет поля created_at, то сортируем по Product.id.desc()
+        # Но раз в твоем коде было создано под коментарием 'new', оставляем как есть:
         query = query.order_by(Product.created_at.desc())
 
-    products = query.all()
+    # 2) ПРИМЕНЯЕМ ПАГИНАЦИЮ ВМЕСТО query.all()
+    # per_page=8 задает жесткий лимит товаров на одну страницу
+    pagination = query.paginate(page=page, per_page=8, error_out=False)
+
+    # Достаем отсеянные 8 товаров для текущей страницы
+    products = pagination.items
+
     categories = Category.query.all()
 
-    # Передаем список ID товаров, которые в избранном у юзера (для закрашивания сердечек)
+    # Передаем список ID товаров, которые в избранном у юзера
     user_favorite_ids = []
     if current_user.is_authenticated:
         user_favorite_ids = [p.id for p in current_user.favorite_products]
 
-    return render_template('index.html', products=products, categories=categories, user_favorite_ids=user_favorite_ids)
+    # ВАЖНО: обязательно прокидываем объект pagination в HTML
+    return render_template(
+        'index.html',
+        products=products,
+        categories=categories,
+        user_favorite_ids=user_favorite_ids,
+        pagination=pagination
+    )
 
 
 # ==========================================
@@ -142,18 +173,20 @@ def profile():
 def product_detail(product_id):
     product = Product.query.get_or_404(product_id)
 
-    # Инициализируем список просмотренных товаров в сессии, если его еще нет
+    # ЗАЩИТА ОТ None: если в базе у товара пусто вместо цифры, принудительно ставим 0
+    if product.views is None:
+        product.views = 0
+
     if 'viewed_products' not in session:
         session['viewed_products'] = []
 
-    # Забираем список из сессии во временную переменную
-    viewed = session['viewed_products']
+    viewed = list(session['viewed_products'])
 
-    # Если пользователь еще не смотрел этот товар в текущей сессии
     if product_id not in viewed:
         product.views += 1
         viewed.append(product_id)
-        session['viewed_products'] = viewed  # Перезаписываем сессию, чтобы Flask зафиксировал изменения
+        session['viewed_products'] = viewed
+        session.modified = True
         db.session.commit()
 
     user_favorite_ids = []
@@ -186,7 +219,17 @@ def add_product():
                 db.session.add(ProductImage(filename=filename, product_id=new_product.id))
 
         db.session.commit()
-        return redirect(url_for('index'))
+
+        # ФИКС: Добавляем товар в список просмотренных для автора, чтобы счетчик не рос при редиректе
+        if 'viewed_products' not in session:
+            session['viewed_products'] = []
+        viewed = list(session['viewed_products'])
+        viewed.append(new_product.id)
+        session['viewed_products'] = viewed
+        session.modified = True
+
+        return redirect(url_for('product_detail', product_id=new_product.id))
+        # return redirect(url_for('index'))
     return render_template('add_product.html', categories=Category.query.all())
 
 
@@ -322,5 +365,5 @@ if __name__ == '__main__':
     else:
         server_port = int(env_port)
 
-    app.run(host='0.0.0.0', port=server_port)
-    #app.run(debug=True)
+    # app.run(host='0.0.0.0', port=server_port)
+    app.run(debug=True)
