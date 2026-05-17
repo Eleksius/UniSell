@@ -449,5 +449,5 @@ if __name__ == '__main__':
         server_port = int(env_port)
 
     logger.info(f"Сервер запускается на порту {server_port}")
-    #app.run(host='0.0.0.0', port=server_port)
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=server_port)
+    #app.run(debug=True)
