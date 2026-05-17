@@ -4,13 +4,13 @@
 <style>
     .product-title-clamp {
         display: -webkit-box;
-        -webkit-line-clamp: 1; /* Обрезать заголовок до 1 строки */
+        -webkit-line-clamp: 1;
         -webkit-box-orient: vertical;
         overflow: hidden;
     }
     .product-description-clamp {
         display: -webkit-box;
-        -webkit-line-clamp: 3; /* Обрезать описание до 3 строк */
+        -webkit-line-clamp: 3;
         -webkit-box-orient: vertical;
         overflow: hidden;
         font-size: 0.9rem;
@@ -19,14 +19,37 @@
     .img-container {
         position: relative;
     }
-    /* Делаем карточку визуально кликабельной */
     .product-link-wrapper {
         cursor: pointer;
         text-decoration: none;
         color: inherit;
     }
     .product-link-wrapper:hover .product-title-clamp {
-        color: #0d6efd; /* Подсветка заголовка при наведении на карточку */
+        color: #0d6efd;
+    }
+
+    /* Стили для кнопки Избранного поверх фото */
+    .favorite-btn-overlay {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: rgba(255, 255, 255, 0.85);
+        border: none;
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        color: #dc3545;
+        transition: transform 0.2s, background 0.2s;
+        z-index: 10;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    }
+    .favorite-btn-overlay:hover {
+        transform: scale(1.1);
+        background: #fff;
     }
 </style>
 
@@ -46,18 +69,28 @@
     <input type="hidden" name="category_id" value="{{ request.args.get('category_id') }}">
     {% endif %}
 
-    <div class="col-md-5">
+    <div class="col-md-4">
         <input type="text" name="search" class="form-control rounded-pill bg-light border-0 px-4 py-2"
                placeholder="Поиск по названию..." value="{{ request.args.get('search', '') }}">
     </div>
-    <div class="col-md-3">
+    <div class="col-md-2">
         <input type="number" name="max_price" class="form-control rounded-pill bg-light border-0 px-4 py-2"
                placeholder="До (₽)" value="{{ request.args.get('max_price', '') }}" min="0">
     </div>
-    <div class="col-md-2">
+
+    <div class="col-md-3">
+        <select name="sort_by" class="form-select rounded-pill bg-light border-0 px-3 py-2" style="font-size: 0.95rem;">
+            <option value="new" {% if request.args.get('sort_by') == 'new' %}selected{% endif %}>Сначала новые</option>
+            <option value="price_asc" {% if request.args.get('sort_by') == 'price_asc' %}selected{% endif %}>Сначала дешевле</option>
+            <option value="price_desc" {% if request.args.get('sort_by') == 'price_desc' %}selected{% endif %}>Сначала дороже</option>
+            <option value="views" {% if request.args.get('sort_by') == 'views' %}selected{% endif %}>По популярности 👀</option>
+        </select>
+    </div>
+
+    <div class="col-md-1.5 col-6 col-md-auto flex-grow-1">
         <button type="submit" class="btn btn-primary w-100 rounded-pill py-2 fw-bold">Найти</button>
     </div>
-    <div class="col-md-2">
+    <div class="col-md-1.5 col-6 col-md-auto">
         <a href="/" class="btn btn-outline-secondary w-100 rounded-pill py-2">Сбросить</a>
     </div>
 </form>
@@ -65,7 +98,7 @@
 <div class="d-flex mb-4 overflow-auto pb-2">
     <a href="/" class="category-chip {% if not request.args.get('category_id') %}active{% endif %}">Все</a>
     {% for cat in categories %}
-    <a href="{{ url_for('index', category_id=cat.id) }}"
+    <a href="{{ url_for('index', category_id=cat.id, search=request.args.get('search',''), max_price=request.args.get('max_price',''), sort_by=request.args.get('sort_by','new')) }}"
        class="category-chip {% if request.args.get('category_id')|int == cat.id %}active{% endif %}">
        {{ cat.name }}
     </a>
@@ -75,7 +108,15 @@
 <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-4">
     {% for product in products %}
     <div class="col">
-        <div class="card h-100 product-card shadow-sm" style="border-radius: 12px;">
+        <div class="card h-100 product-card shadow-sm position-relative" style="border-radius: 12px;">
+
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('toggle_favorite', product_id=product.id) }}" class="favorite-btn-overlay" title="В избранное">
+                    {% if product.id in user_favorite_ids %}
+                        ♥  {% else %}
+                        ♡  {% endif %}
+                </a>
+            {% endif %}
 
             <a href="{{ url_for('product_detail', product_id=product.id) }}" class="product-link-wrapper">
                 <div class="img-container rounded-top overflow-hidden">
@@ -94,6 +135,10 @@
             </a>
 
             <div class="card-body d-flex flex-column pt-0 px-3 pb-3">
+                <div class="d-flex justify-content-between text-muted extra-small mb-2" style="font-size: 0.8rem;">
+                    <span>👀 {{ product.views }}</span>
+                    <span>📅 {{ product.created_at.strftime('%d.%m.%Y') }}</span>
+                </div>
                 <p class="text-muted small mb-3">Продавец: {{ product.seller.username }}</p>
 
                 <div class="mt-auto">
@@ -103,18 +148,8 @@
 
                     {% if current_user.is_authenticated and product.user_id == current_user.id %}
                     <div class="d-flex gap-2">
-                        <a href="{{ url_for('edit_product', product_id=product.id) }}" class="btn btn-outline-secondary btn-sm w-50 rounded-pill">
-                            Редактировать
-                        </a>
-
-                        <button type="button"
-                                class="btn btn-outline-danger btn-sm w-50 rounded-pill"
-                                data-bs-toggle="modal"
-                                data-bs-target="#deleteModal"
-                                data-product-id="{{ product.id }}"
-                                data-product-title="{{ product.title }}">
-                            Удалить
-                        </button>
+                        <a href="{{ url_for('edit_product', product_id=product.id) }}" class="btn btn-outline-secondary btn-sm w-50 rounded-pill">Редактировать</a>
+                        <button type="button" class="btn btn-outline-danger btn-sm w-50 rounded-pill" data-bs-toggle="modal" data-bs-target="#deleteModal" data-product-id="{{ product.id }}" data-product-title="{{ product.title }}">Удалить</button>
                     </div>
                     {% endif %}
                 </div>
@@ -127,23 +162,23 @@
 
 {% if not products %}
 <div class="text-center mt-5">
-    <p class="text-muted fs-5">Здесь пока ничего нет. Будь первым!</p>
+    <p class="text-muted fs-5">Ничего не найдено.</p>
 </div>
 {% endif %}
 
-<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content" style="border-radius: 15px; border: none;">
       <div class="modal-header border-0 pt-4 px-4">
-        <h5 class="modal-title fw-bold text-danger" id="deleteModalLabel">Удаление объявления</h5>
+        <h5 class="modal-title fw-bold text-danger">Удаление объявления</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body px-4 fs-6">
-        Вы действительно хотите окончательно удалить объявление <strong id="deleteModalProductTitle"></strong>? Это действие нельзя отменить.
+        Вы действительно хотите окончательно удалить объявление <strong id="deleteModalProductTitle"></strong>?
       </div>
       <div class="modal-footer border-0 pb-4 px-4">
         <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Отмена</button>
-        <a href="#" id="confirmDeleteButton" class="btn btn-danger rounded-pill px-4 fw-bold">Удалить навсегда</a>
+        <a href="#" id="confirmDeleteButton" class="btn btn-danger rounded-pill px-4 fw-bold">Удалить</a>
       </div>
     </div>
   </div>
@@ -154,14 +189,8 @@ const deleteModal = document.getElementById('deleteModal')
 if (deleteModal) {
   deleteModal.addEventListener('show.bs.modal', event => {
     const button = event.relatedTarget
-    const productId = button.getAttribute('data-product-id')
-    const productTitle = button.getAttribute('data-product-title')
-
-    const modalTitleSpan = deleteModal.querySelector('#deleteModalProductTitle')
-    const modalConfirmButton = deleteModal.querySelector('#confirmDeleteButton')
-
-    modalTitleSpan.textContent = `"${productTitle}"`
-    modalConfirmButton.href = `/delete/${productId}`
+    document.getElementById('deleteModalProductTitle').textContent = `"${button.getAttribute('data-product-title')}"`
+    document.getElementById('confirmDeleteButton').href = `/delete/${button.getAttribute('data-product-id')}`
   })
 }
 </script>

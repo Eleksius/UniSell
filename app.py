@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, jsonify, flash
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, session
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -75,28 +75,40 @@ def logout():
 # ==========================================
 @app.route('/')
 def index():
-    # Получаем параметры из URL (например: /?search=учебник&max_price=500)
     category_id = request.args.get('category_id')
     search_query = request.args.get('search')
     max_price = request.args.get('max_price')
+    sort_by = request.args.get('sort_by', 'new')  # По умолчанию сначала новые
 
-    # Начинаем собирать запрос к БД
     query = Product.query
 
+    # Фильтры
     if category_id:
         query = query.filter_by(category_id=category_id)
-
     if search_query:
-        # ilike ищет без учета регистра (учебник == Учебник)
         query = query.filter(Product.title.ilike(f'%{search_query}%'))
-
     if max_price and max_price.isdigit():
         query = query.filter(Product.price <= int(max_price))
 
-    products = query.order_by(Product.id.desc()).all()
+    # 2) СОРТИРОВКА
+    if sort_by == 'price_asc':
+        query = query.order_by(Product.price.asc())
+    elif sort_by == 'price_desc':
+        query = query.order_by(Product.price.desc())
+    elif sort_by == 'views':
+        query = query.order_by(Product.views.desc())
+    else:  # 'new'
+        query = query.order_by(Product.created_at.desc())
+
+    products = query.all()
     categories = Category.query.all()
 
-    return render_template('index.html', products=products, categories=categories)
+    # Передаем список ID товаров, которые в избранном у юзера (для закрашивания сердечек)
+    user_favorite_ids = []
+    if current_user.is_authenticated:
+        user_favorite_ids = [p.id for p in current_user.favorite_products]
+
+    return render_template('index.html', products=products, categories=categories, user_favorite_ids=user_favorite_ids)
 
 
 # ==========================================
@@ -106,7 +118,6 @@ def index():
 @login_required
 def profile():
     if request.method == 'POST':
-        # Логика смены пароля
         old_password = request.form.get('old_password')
         new_password = request.form.get('new_password')
 
@@ -118,16 +129,36 @@ def profile():
             flash('Неверный текущий пароль.', 'danger')
         return redirect(url_for('profile'))
 
-    # Получаем только объявления текущего пользователя
     user_products = Product.query.filter_by(user_id=current_user.id).order_by(Product.id.desc()).all()
-    return render_template('profile.html', products=user_products)
+    # Забираем список избранных товаров для отображения в ЛК
+    favorite_products = current_user.favorite_products
+
+    return render_template('profile.html', products=user_products, favorite_products=favorite_products)
 
 
 @app.route('/product/<int:product_id>')
 def product_detail(product_id):
-    # Ищем товар по ID. Если кто-то введет несуществующий ID, Flask выдаст ошибку 404
     product = Product.query.get_or_404(product_id)
-    return render_template('product_detail.html', product=product)
+
+    # Инициализируем список просмотренных товаров в сессии, если его еще нет
+    if 'viewed_products' not in session:
+        session['viewed_products'] = []
+
+    # Забираем список из сессии во временную переменную
+    viewed = session['viewed_products']
+
+    # Если пользователь еще не смотрел этот товар в текущей сессии
+    if product_id not in viewed:
+        product.views += 1
+        viewed.append(product_id)
+        session['viewed_products'] = viewed  # Перезаписываем сессию, чтобы Flask зафиксировал изменения
+        db.session.commit()
+
+    user_favorite_ids = []
+    if current_user.is_authenticated:
+        user_favorite_ids = [p.id for p in current_user.favorite_products]
+
+    return render_template('product_detail.html', product=product, user_favorite_ids=user_favorite_ids)
 
 
 @app.route('/add', methods=['GET', 'POST'])
@@ -158,7 +189,26 @@ def add_product():
 
 
 # --- ТРЕБОВАНИЕ: REST API ---
-# Этот эндпоинт отдает список товаров в формате JSON. Отлично подойдет и для Алисы!
+# 1) МАРШРУТ ДЛЯ ДОБАВЛЕНИЯ/УДАЛЕНИЯ ИЗ ИЗБРАННОГО
+@app.route('/favorite/toggle/<int:product_id>')
+@login_required
+def toggle_favorite(product_id):
+    product = Product.query.get_or_404(product_id)
+
+    # ОЧИСТКА ОЧЕРЕДИ: удаляем все скопившиеся уведомления перед тем, как добавить новое
+    session.pop('_flashes', None)
+
+    if product in current_user.favorite_products:
+        current_user.favorite_products.remove(product)
+        flash('Удалено из избранного', 'info')
+    else:
+        current_user.favorite_products.append(product)
+        flash('Добавлено в избранное!', 'success')
+
+    db.session.commit()
+    return redirect(request.referrer or url_for('index'))
+
+
 @app.route('/api/products', methods=['GET'])
 def get_products_api():
     products = Product.query.all()

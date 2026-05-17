@@ -8,19 +8,16 @@
                 <div class="carousel-inner">
                     {% for img in product.images %}
                     <div class="carousel-item {% if loop.first %}active{% endif %}" style="height: 450px;">
-                        <img src="{{ url_for('static', filename='uploads/' + img.filename) }}" class="d-block w-100 h-100" style="object-fit: contain;" alt="Фото товара">
+                        <img src="{{ url_for('static', filename='uploads/' + img.filename) }}" class="d-block w-100 h-100" style="object-fit: contain;">
                     </div>
                     {% endfor %}
                 </div>
-
                 {% if product.images|length > 1 %}
                 <button class="carousel-control-prev" type="button" data-bs-target="#productCarousel" data-bs-slide="prev">
                     <span class="carousel-control-prev-icon" aria-hidden="true" style="filter: invert(100%);"></span>
-                    <span class="visually-hidden">Предыдущая</span>
                 </button>
                 <button class="carousel-control-next" type="button" data-bs-target="#productCarousel" data-bs-slide="next">
                     <span class="carousel-control-next-icon" aria-hidden="true" style="filter: invert(100%);"></span>
-                    <span class="visually-hidden">Следующая</span>
                 </button>
                 {% endif %}
             </div>
@@ -40,10 +37,24 @@
           </ol>
         </nav>
 
-        <h2 class="fw-bold mb-3">{{ product.title }}</h2>
-        <h3 class="text-primary fw-bold mb-4">{{ product.price }} ₽</h3>
+        <div class="d-flex justify-content-between align-items-start mb-2">
+            <h2 class="fw-bold mb-0">{{ product.title }}</h2>
 
-        <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px; background-color: #ffffff;">
+            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('toggle_favorite', product_id=product.id) }}" class="btn {% if product.id in user_favorite_ids %}btn-danger{% else %}btn-outline-danger{% endif %} rounded-pill px-3">
+                {% if product.id in user_favorite_ids %}♥ В избранном{% else %}♡ В избранное{% endif %}
+            </a>
+            {% endif %}
+        </div>
+
+        <h3 class="text-primary fw-bold mb-3">{{ product.price }} ₽</h3>
+
+        <div class="d-flex gap-3 text-muted small mb-4">
+            <span>📅 Опубликовано: <strong>{{ product.created_at.strftime('%d.%m.%Y в %H:%M') }}</strong></span>
+            <span>👀 Просмотров: <strong>{{ product.views }}</strong></span>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px;">
             <div class="card-body p-4">
                 <h5 class="fw-bold mb-3">Описание</h5>
                 <p class="card-text" style="white-space: pre-wrap; font-size: 1.05rem; color: #444;">{{ product.description }}</p>
@@ -60,12 +71,8 @@
 
         {% if current_user.is_authenticated and product.user_id == current_user.id %}
         <div class="d-flex gap-2 mt-3">
-            <a href="{{ url_for('edit_product', product_id=product.id) }}" class="btn btn-outline-secondary w-50 rounded-pill">
-                Редактировать
-            </a>
-            <button type="button" class="btn btn-outline-danger w-50 rounded-pill" data-bs-toggle="modal" data-bs-target="#deleteModal" data-product-id="{{ product.id }}" data-product-title="{{ product.title }}">
-                Удалить
-            </button>
+            <a href="{{ url_for('edit_product', product_id=product.id) }}" class="btn btn-outline-secondary w-50 rounded-pill">Редактировать</a>
+            <button type="button" class="btn btn-outline-danger w-50 rounded-pill" data-bs-toggle="modal" data-bs-target="#deleteModal" data-product-id="{{ product.id }}" data-product-title="{{ product.title }}">Удалить</button>
         </div>
         {% endif %}
     </div>
@@ -79,7 +86,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body px-4 fs-6">
-        Вы действительно хотите удалить объявление <strong id="deleteModalProductTitle"></strong>?
+        Удалить объявление <strong id="deleteModalProductTitle"></strong>?
       </div>
       <div class="modal-footer border-0 pb-4 px-4">
         <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Отмена</button>
@@ -94,9 +101,8 @@ const deleteModal = document.getElementById('deleteModal')
 if (deleteModal) {
   deleteModal.addEventListener('show.bs.modal', event => {
     const button = event.relatedTarget
-    const productId = button.getAttribute('data-product-id')
-    document.getElementById('deleteModalProductTitle').textContent = button.getAttribute('data-product-title')
-    document.getElementById('confirmDeleteButton').href = `/delete/${productId}`
+    document.getElementById('deleteModalProductTitle').textContent = `"${button.getAttribute('data-product-title')}"`
+    document.getElementById('confirmDeleteButton').href = `/delete/${button.getAttribute('data-product-id')}`
   })
 }
 </script>
