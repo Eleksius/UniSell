@@ -16,7 +16,6 @@
         transition: opacity 0.2s, filter 0.2s;
     }
 
-    /* Скрываем чекбокс, но он должен остаться кликабельным */
     .delete-checkbox {
         position: absolute;
         top: 0; left: 0;
@@ -26,12 +25,11 @@
         cursor: pointer;
     }
 
-    /* Кнопка-крестик (Красная с белым 'X') */
     .delete-indicator {
         position: absolute;
         top: 5px;
         right: 5px;
-        background: #dc3545; /* Bootstrap Red */
+        background: #dc3545;
         color: white;
         border-radius: 50%;
         width: 22px;
@@ -41,27 +39,24 @@
         justify-content: center;
         font-weight: bold;
         font-size: 14px;
-        pointer-events: none; /* Пропускаем клик сквозь иконку в чекбокс */
-        opacity: 0; /* Изначально скрыт, появляется при наведении */
+        pointer-events: none;
+        opacity: 0;
         transition: opacity 0.2s;
         z-index: 10;
         box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
 
-    /* При наведении на картинку - показываем красный крестик */
     .image-manage-wrapper:hover .delete-indicator {
         opacity: 1;
     }
 
-    /* Когда чекбокс ВЫБРАН (фото отмечено на удаление) */
     .delete-checkbox:checked + .delete-indicator {
         opacity: 1;
-        background: white; /* Фон меняется */
-        color: #dc3545;    /* Крестик становится красным */
+        background: white;
+        color: #dc3545;
         border: 2px solid #dc3545;
     }
 
-    /* Затемнение фото при выбранном чекбоксе */
     .delete-checkbox:checked + .delete-indicator + img {
         opacity: 0.3;
         filter: grayscale(100%);
@@ -75,14 +70,19 @@
         <form method="POST" enctype="multipart/form-data">
             <div class="mb-3">
                 <label class="form-label fw-600">Название товара</label>
-                <input type="text" name="title" class="form-control" value="{{ product.title }}" required>
+                <input type="text" name="title" class="form-control" value="{{ values.title if values else product.title }}" required>
             </div>
 
             <div class="mb-3">
                 <label class="form-label fw-600">Категория</label>
                 <select name="category" class="form-select" required>
                     {% for cat in categories %}
-                        <option value="{{ cat.id }}" {% if cat.id == product.category_id %}selected{% endif %}>
+                        <option value="{{ cat.id }}"
+                            {% if values %}
+                                {% if values.category == cat.id|string %}selected{% endif %}
+                            {% else %}
+                                {% if cat.id == product.category_id %}selected{% endif %}
+                            {% endif %}>
                             {{ cat.name }}
                         </option>
                     {% endfor %}
@@ -91,17 +91,17 @@
 
             <div class="mb-3">
                 <label class="form-label fw-600">Цена (₽)</label>
-                <input type="number" name="price" class="form-control" value="{{ product.price }}" min="0" required>
+                <input type="number" name="price" class="form-control" value="{{ values.price if values else product.price }}" min="0" required>
             </div>
 
             <div class="mb-3">
                 <label class="form-label fw-600">Описание</label>
-                <textarea name="description" class="form-control" rows="4" required>{{ product.description }}</textarea>
+                <textarea name="description" class="form-control" rows="4" required>{{ values.description if values else product.description }}</textarea>
             </div>
 
             <div class="mb-3">
                 <label class="form-label fw-600">Ссылка для связи</label>
-                <input type="text" name="contact" class="form-control" value="{{ product.contact_link }}" required>
+                <input type="text" name="contact" class="form-control" value="{{ values.contact if values else product.contact_link }}" required>
             </div>
 
             <div class="mb-3">

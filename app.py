@@ -1,4 +1,5 @@
 import os
+import logging
 from doctest import debug
 
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, session
@@ -7,10 +8,24 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from models import db, User, Product, Category, ProductImage
 
+# ==========================================
+# НАСТРОЙКА ЛОГИРОВАНИЯ (ДЛЯ АДМИНИСТРИРОВАНИЯ)
+# ==========================================
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[
+        logging.StreamHandler(),  # Вывод логов в консоль (удобно для Amvera)
+        logging.FileHandler("app_system.log", encoding='utf-8')  # Дублирование в файл
+    ]
+)
+logger = logging.getLogger(__name__)
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your_super_secret_key_123'  # Нужно для работы сессий
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///market.db'
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
+app.json.ensure_ascii = False
 
 db.init_app(app)
 
@@ -37,13 +52,38 @@ def format_price(value):
         return value
 
 
+# ==========================================
+# КАСТОМНЫЕ ОБРАБОТЧИКИ ОШИБОК
+# ==========================================
+@app.errorhandler(404)
+def page_not_found(e):
+    logger.warning(f"Ошибка 404: Запрошена несуществующая страница -> {request.url}")
+    return render_template('404.html'), 404
+
+
+@app.errorhandler(500)
+def internal_server_error(e):
+    logger.error(f"Ошибка 500: Внутренняя ошибка сервера -> {request.url}")
+    db.session.rollback()  # Откатываем сессию БД, если транзакция сломалась
+    return render_template('500.html'), 500
+
+
 # --- МАРШРУТЫ АВТОРИЗАЦИИ ---
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+
+        # Валидация
+        if len(username) < 3:
+            flash('Логин должен содержать минимум 3 символа.', 'danger')
+            return redirect(url_for('register'))
+
+        if len(password) < 6:
+            flash('Пароль должен быть не короче 6 символов.', 'danger')
+            return redirect(url_for('register'))
 
         if User.query.filter_by(username=username).first():
             flash('Пользователь с таким логином уже существует.', 'danger')
@@ -53,6 +93,9 @@ def register():
         new_user = User(username=username, password_hash=hashed_pw)
         db.session.add(new_user)
         db.session.commit()
+
+        logger.info(f"Зарегистрирован новый пользователь: {username}")
+        flash('Регистрация прошла успешно! Теперь вы можете войти.', 'success')
         return redirect(url_for('login'))
 
     return render_template('register.html')
@@ -67,8 +110,10 @@ def login():
         user = User.query.filter_by(username=username).first()
         if user and check_password_hash(user.password_hash, password):
             login_user(user)
+            logger.info(f"Пользователь {username} вошел в систему.")
             return redirect(url_for('index'))
 
+        logger.warning(f"Неудачная попытка входа для логина: {username}")
         flash('Неверный логин или пароль.', 'danger')
         return redirect(url_for('login'))
 
@@ -78,6 +123,7 @@ def login():
 @app.route('/logout')
 @login_required
 def logout():
+    logger.info(f"Пользователь {current_user.username} вышел из системы.")
     logout_user()
     return redirect(url_for('index'))
 
@@ -95,7 +141,6 @@ def index():
     sort_by = request.args.get('sort_by', 'new')  # По умолчанию сначала новые
 
     # 1) ПОЛУЧАЕМ НОМЕР СТРАНИЦЫ
-    # Извлекаем параметр 'page' из URL (например, /?page=2). Если его нет, ставим 1.
     page = request.args.get('page', 1, type=int)
 
     query = Product.query
@@ -108,33 +153,30 @@ def index():
     if max_price and max_price.isdigit():
         query = query.filter(Product.price <= int(max_price))
 
-    # Сортировка
+    # Сортировка (расширенная)
     if sort_by == 'price_asc':
         query = query.order_by(Product.price.asc())
     elif sort_by == 'price_desc':
         query = query.order_by(Product.price.desc())
     elif sort_by == 'views':
         query = query.order_by(Product.views.desc())
+    elif sort_by == 'title_asc':
+        query = query.order_by(Product.title.asc())
+    elif sort_by == 'title_desc':
+        query = query.order_by(Product.title.desc())
     else:  # 'new'
-        # Если у тебя в модели Product нет поля created_at, то сортируем по Product.id.desc()
-        # Но раз в твоем коде было создано под коментарием 'new', оставляем как есть:
         query = query.order_by(Product.created_at.desc())
 
-    # 2) ПРИМЕНЯЕМ ПАГИНАЦИЮ ВМЕСТО query.all()
-    # per_page=8 задает жесткий лимит товаров на одну страницу
+    # 2) ПРИМЕНЯЕМ ПАГИНАЦИЮ
     pagination = query.paginate(page=page, per_page=8, error_out=False)
 
-    # Достаем отсеянные 8 товаров для текущей страницы
     products = pagination.items
-
     categories = Category.query.all()
 
-    # Передаем список ID товаров, которые в избранном у юзера
     user_favorite_ids = []
     if current_user.is_authenticated:
         user_favorite_ids = [p.id for p in current_user.favorite_products]
 
-    # ВАЖНО: обязательно прокидываем объект pagination в HTML
     return render_template(
         'index.html',
         products=products,
@@ -154,16 +196,21 @@ def profile():
         old_password = request.form.get('old_password')
         new_password = request.form.get('new_password')
 
+        if len(new_password) < 6:
+            flash('Новый пароль должен быть не короче 6 символов.', 'warning')
+            return redirect(url_for('profile'))
+
         if check_password_hash(current_user.password_hash, old_password):
             current_user.password_hash = generate_password_hash(new_password)
             db.session.commit()
+            logger.info(f"Пользователь {current_user.username} успешно изменил пароль.")
             flash('Пароль успешно изменен!', 'success')
         else:
+            logger.warning(f"Неудачная попытка смены пароля для пользователя {current_user.username}.")
             flash('Неверный текущий пароль.', 'danger')
         return redirect(url_for('profile'))
 
     user_products = Product.query.filter_by(user_id=current_user.id).order_by(Product.id.desc()).all()
-    # Забираем список избранных товаров для отображения в ЛК
     favorite_products = current_user.favorite_products
 
     return render_template('profile.html', products=user_products, favorite_products=favorite_products)
@@ -173,7 +220,6 @@ def profile():
 def product_detail(product_id):
     product = Product.query.get_or_404(product_id)
 
-    # ЗАЩИТА ОТ None: если в базе у товара пусто вместо цифры, принудительно ставим 0
     if product.views is None:
         product.views = 0
 
@@ -197,16 +243,42 @@ def product_detail(product_id):
 
 
 @app.route('/add', methods=['GET', 'POST'])
-@login_required  # Только залогиненные могут добавлять
+@login_required
 def add_product():
     if request.method == 'POST':
+        title = request.form.get('title', '').strip()
+        price = request.form.get('price')
+        description = request.form.get('description', '').strip()
+        contact = request.form.get('contact', '').strip()
+        category_id = request.form.get('category')
+
+        # ----------------------------------------
+        # БЛОК ВАЛИДАЦИИ ФОРМЫ (Возвращаем values=request.form)
+        # ----------------------------------------
+        if len(title) < 5:
+            flash('Название объявления должно содержать минимум 5 символов.', 'danger')
+            return render_template('add_product.html', categories=Category.query.all(), values=request.form)
+
+        if len(description) < 10:
+            flash('Описание слишком короткое. Напишите хотя бы пару слов о товаре.', 'danger')
+            return render_template('add_product.html', categories=Category.query.all(), values=request.form)
+
+        try:
+            price_val = float(price)
+            if price_val < 0 or price_val > 1000000:
+                flash('Указана некорректная цена (допускается от 0 до 1 000 000 ₽).', 'danger')
+                return render_template('add_product.html', categories=Category.query.all(), values=request.form)
+        except (ValueError, TypeError):
+            flash('Цена должна быть числом.', 'danger')
+            return render_template('add_product.html', categories=Category.query.all(), values=request.form)
+
         new_product = Product(
-            title=request.form['title'],
-            description=request.form['description'],
-            price=request.form['price'],
-            contact_link=request.form['contact'],
-            category_id=request.form['category'],
-            user_id=current_user.id  # Привязываем к текущему юзеру
+            title=title,
+            description=description,
+            price=price_val,
+            contact_link=contact,
+            category_id=category_id,
+            user_id=current_user.id
         )
         db.session.add(new_product)
         db.session.flush()
@@ -220,7 +292,8 @@ def add_product():
 
         db.session.commit()
 
-        # ФИКС: Добавляем товар в список просмотренных для автора, чтобы счетчик не рос при редиректе
+        logger.info(f"Пользователь {current_user.username} создал новое объявление: ID {new_product.id}")
+
         if 'viewed_products' not in session:
             session['viewed_products'] = []
         viewed = list(session['viewed_products'])
@@ -229,18 +302,14 @@ def add_product():
         session.modified = True
 
         return redirect(url_for('product_detail', product_id=new_product.id))
-        # return redirect(url_for('index'))
+
     return render_template('add_product.html', categories=Category.query.all())
 
 
-# --- ТРЕБОВАНИЕ: REST API ---
-# 1) МАРШРУТ ДЛЯ ДОБАВЛЕНИЯ/УДАЛЕНИЯ ИЗ ИЗБРАННОГО
 @app.route('/favorite/toggle/<int:product_id>')
 @login_required
 def toggle_favorite(product_id):
     product = Product.query.get_or_404(product_id)
-
-    # ОЧИСТКА ОЧЕРЕДИ: удаляем все скопившиеся уведомления перед тем, как добавить новое
     session.pop('_flashes', None)
 
     if product in current_user.favorite_products:
@@ -281,31 +350,46 @@ def get_products_api():
 def edit_product(product_id):
     product = Product.query.get_or_404(product_id)
 
-    # Строгая проверка прав
     if product.user_id != current_user.id:
+        logger.warning(
+            f"Попытка несанкционированного редактирования! Юзер {current_user.username} пытался изменить товар {product_id}")
         flash('Вы не можете редактировать чужие объявления!', 'danger')
         return redirect(url_for('index'))
 
     if request.method == 'POST':
+        title = request.form.get('title', '').strip()
+        price = request.form.get('price')
+
+        # Строгая валидация при обновлении (Возвращаем значения обратно)
+        if len(title) < 5:
+            flash('Название объявления должно содержать минимум 5 символов.', 'danger')
+            return render_template('edit_product.html', product=product, categories=Category.query.all(), values=request.form)
+
+        try:
+            price_val = float(price)
+            if price_val < 0 or price_val > 1000000:
+                flash('Указана некорректная цена (допускается от 0 до 1 000 000 ₽).', 'danger')
+                return render_template('edit_product.html', product=product, categories=Category.query.all(), values=request.form)
+        except (ValueError, TypeError):
+            flash('Цена должна быть числом.', 'danger')
+            return render_template('edit_product.html', product=product, categories=Category.query.all(), values=request.form)
+
         # 1. Сначала обрабатываем УДАЛЕНИЕ выбранных фотографий
-        delete_images_ids = request.form.getlist('delete_images')  # Получаем список ID галочек
+        delete_images_ids = request.form.getlist('delete_images')
         if delete_images_ids:
             for img_id in delete_images_ids:
                 image_to_del = ProductImage.query.get(int(img_id))
-                # Дополнительная проверка: принадлежит ли фото этому товару
                 if image_to_del and image_to_del.product_id == product.id:
-                    # Чистим файл с диска
                     try:
                         os.remove(os.path.join(app.config['UPLOAD_FOLDER'], image_to_del.filename))
                     except FileNotFoundError:
                         pass
-                    # Чистим запись из БД
                     db.session.delete(image_to_del)
 
         # 2. Обновляем основные текстовые поля
-        product.title = request.form.get('title')
+        product.title = title
         product.category_id = request.form.get('category')
-        product.price = request.form.get('price', 0)
+        product.price = price_val
         product.description = request.form.get('description')
         product.contact_link = request.form.get('contact')
 
@@ -318,6 +402,7 @@ def edit_product(product_id):
                 db.session.add(ProductImage(filename=filename, product_id=product.id))
 
         db.session.commit()
+        logger.info(f"Объявление {product.id} было отредактировано пользователем {current_user.username}")
         flash('Объявление успешно обновлено!', 'success')
         return redirect(url_for('index'))
 
@@ -330,23 +415,22 @@ def edit_product(product_id):
 def delete_product(product_id):
     product = Product.query.get_or_404(product_id)
 
-    # Проверка прав
     if product.user_id != current_user.id:
+        logger.warning(f"Нарушение прав доступа! Юзер {current_user.username} пытался удалить товар {product_id}")
         flash('Вы не можете удалить чужое объявление!', 'danger')
         return redirect(url_for('index'))
 
-    # Удаляем файлы картинок с жесткого диска сервера, чтобы не забивать место
     for img in product.images:
         try:
             os.remove(os.path.join(app.config['UPLOAD_FOLDER'], img.filename))
         except FileNotFoundError:
-            pass  # Если файла физически нет, просто идем дальше
+            pass
         db.session.delete(img)
 
-    # Удаляем сам товар из базы
     db.session.delete(product)
     db.session.commit()
 
+    logger.info(f"Объявление {product_id} успешно удалено пользователем {current_user.username}")
     flash('Объявление успешно удалено.', 'success')
     return redirect(url_for('index'))
 
@@ -359,11 +443,11 @@ if __name__ == '__main__':
             db.session.commit()
     env_port = os.environ.get("PORT")
 
-    # Если переменная пустая, равна '' или отсутствует — ставим 80
     if not env_port or env_port == '':
         server_port = 80
     else:
         server_port = int(env_port)
 
-    app.run(host='0.0.0.0', port=server_port)
-    #app.run(debug=True)
+    logger.info(f"Сервер запускается на порту {server_port}")
+    #app.run(host='0.0.0.0', port=server_port)
+    app.run(debug=True)

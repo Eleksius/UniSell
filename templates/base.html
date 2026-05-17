@@ -54,19 +54,15 @@
         }
     </style>
     <style>
-        /* Плавный переход при смене темы.
-           Важно: transition для background-color убран с body, чтобы при загрузке не было плавного перетекания из белого в черный */
         body {
             transition: color 0.3s ease;
         }
 
-        /* Стили темной темы */
         body.dark-mode {
             background-color: #121212 !important;
             color: #e0e0e0 !important;
         }
 
-        /* Перекрашиваем карточки, модалки и светлые блоки */
         body.dark-mode .bg-white,
         body.dark-mode .bg-light,
         body.dark-mode .card,
@@ -77,7 +73,6 @@
             border-color: #333 !important;
         }
 
-        /* Инпуты и формы */
         body.dark-mode .form-control,
         body.dark-mode .form-select {
             background-color: #2c2c2c !important;
@@ -88,7 +83,6 @@
             color: #aaa !important;
         }
 
-        /* Тексты */
         body.dark-mode .text-dark {
             color: #fff !important;
         }
@@ -96,13 +90,11 @@
             color: #999 !important;
         }
 
-        /* Фон контейнера для фото */
         body.dark-mode .img-container,
         body.dark-mode .carousel-item {
             background-color: #2c2c2c !important;
         }
 
-        /* Кнопка избранного на главной */
         body.dark-mode .favorite-btn-overlay {
             background: rgba(30, 30, 30, 0.85);
         }
@@ -110,7 +102,6 @@
             background: #333;
         }
 
-        /* === ФИКС ДЛЯ ПАГИНАЦИИ === */
         body.dark-mode .page-link {
             background-color: #2c2c2c !important;
             border-color: #444 !important;
@@ -126,14 +117,12 @@
             color: #666 !important;
             border-color: #444 !important;
         }
-        /* === ФИКС ДЛЯ КНОПОК КАТЕГОРИЙ === */
         body.dark-mode .category-chip {
             background-color: #2c2c2c !important;
             color: #e0e0e0 !important;
             border-color: #444 !important;
         }
 
-        /* Цвета для активной категории и при наведении в темной теме */
         body.dark-mode .category-chip:hover,
         body.dark-mode .category-chip.active {
             background-color: #0d6efd !important;
@@ -172,6 +161,17 @@
     </nav>
 
     <div class="container mb-5">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show mb-4 rounded-pill px-4 shadow-sm" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
         {% block content %}{% endblock %}
     </div>
 
@@ -183,12 +183,10 @@
         const themeIcon = document.getElementById('theme-icon');
         const body = document.body;
 
-        // При загрузке страницы проверяем, применена ли темная тема, чтобы поставить нужную иконку
         if (body.classList.contains('dark-mode')) {
             themeIcon.textContent = '☀️';
         }
 
-        // Обработка клика по кнопке
         if (themeToggleBtn) {
             themeToggleBtn.addEventListener('click', function() {
                 body.classList.toggle('dark-mode');

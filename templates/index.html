@@ -58,17 +58,6 @@
     }
 </style>
 
-{% with messages = get_flashed_messages(with_categories=true) %}
-{% if messages %}
-{% for category, message in messages %}
-<div class="alert alert-{{ category }} alert-dismissible fade show" role="alert" style="border-radius: 10px;">
-    {{ message }}
-    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-</div>
-{% endfor %}
-{% endif %}
-{% endwith %}
-
 <form method="GET" action="/" class="row g-2 mb-4 bg-white p-3 rounded-4 shadow-sm">
     {% if request.args.get('category_id') %}
     <input type="hidden" name="category_id" value="{{ request.args.get('category_id') }}">
@@ -85,10 +74,14 @@
 
     <div class="col-md-3">
         <select name="sort_by" class="form-select rounded-pill bg-light border-0 px-3 py-2" style="font-size: 0.95rem;">
-            <option value="new" {% if request.args.get('sort_by') == 'new' %}selected{% endif %}>Сначала новые</option>
-            <option value="price_asc" {% if request.args.get('sort_by') == 'price_asc' %}selected{% endif %}>Сначала дешевле</option>
-            <option value="price_desc" {% if request.args.get('sort_by') == 'price_desc' %}selected{% endif %}>Сначала дороже</option>
-            <option value="views" {% if request.args.get('sort_by') == 'views' %}selected{% endif %}>По популярности 👀</option>
+            <option value="new" {% if request.args.get(
+            'sort_by') == 'new' %}selected{% endif %}>Сначала новые</option>
+            <option value="price_asc" {% if request.args.get(
+            'sort_by') == 'price_asc' %}selected{% endif %}>Сначала дешевле</option>
+            <option value="price_desc" {% if request.args.get(
+            'sort_by') == 'price_desc' %}selected{% endif %}>Сначала дороже</option>
+            <option value="views" {% if request.args.get(
+            'sort_by') == 'views' %}selected{% endif %}>По популярности 👀</option>
         </select>
     </div>
 
@@ -131,14 +124,18 @@
                     <img src="{{ url_for('static', filename='uploads/' + product.images[0].filename) }}"
                          alt="{{ product.title }}" style="width: 100%; height: 100%; object-fit: cover;">
                     {% else %}
-                    <div class="d-flex align-items-center justify-content-center text-muted" style="height: 100%;">Нет фото</div>
+                    <div class="d-flex align-items-center justify-content-center text-muted" style="height: 100%;">Нет
+                        фото
+                    </div>
                     {% endif %}
                 </div>
 
                 <div class="p-3 pb-0">
                     <h5 class="fw-bold text-dark mb-1">{{ product.price | format_price }} ₽</h5>
-                    <h6 class="fw-semibold mb-2 product-title-clamp" title="{{ product.title }}">{{ product.title }}</h6>
-                    <p class="card-text mb-2 product-description-clamp" title="{{ product.description }}">{{ product.description }}</p>
+                    <h6 class="fw-semibold mb-2 product-title-clamp" title="{{ product.title }}">{{ product.title
+                        }}</h6>
+                    <p class="card-text mb-2 product-description-clamp" title="{{ product.description }}">{{
+                        product.description }}</p>
                 </div>
             </a>
 
@@ -210,7 +207,9 @@
         {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
         {% if page_num %}
         <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
-            <a class="page-link" href="{{ url_for('index', page=page_num, category_id=request.args.get('category_id'), search=request.args.get('search'), max_price=request.args.get('max_price'), sort_by=request.args.get('sort_by')) }}">{{ page_num }}</a>
+            <a class="page-link"
+               href="{{ url_for('index', page=page_num, category_id=request.args.get('category_id'), search=request.args.get('search'), max_price=request.args.get('max_price'), sort_by=request.args.get('sort_by')) }}">{{
+                page_num }}</a>
         </li>
         {% else %}
         <li class="page-item disabled"><span class="page-link">...</span></li>

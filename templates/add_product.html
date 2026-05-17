@@ -7,33 +7,33 @@
         <form method="POST" enctype="multipart/form-data">
             <div class="mb-3">
                 <label class="form-label fw-600">Название товара</label>
-                <input type="text" name="title" class="form-control" placeholder="Например: Учебник по физике 10 класс" required>
+                <input type="text" name="title" class="form-control" placeholder="Например: Учебник по физике 10 класс" value="{{ values.title if values else '' }}" required>
             </div>
 
             <div class="mb-3">
                 <label class="form-label fw-600">Категория</label>
                 <select name="category" class="form-select" required>
-                    <option value="" selected disabled>Выберите категорию</option>
+                    <option value="" {% if not values or not values.category %}selected{% endif %} disabled>Выберите категорию</option>
                     {% for cat in categories %}
-                        <option value="{{ cat.id }}">{{ cat.name }}</option>
+                        <option value="{{ cat.id }}" {% if values and values.category == cat.id|string %}selected{% endif %}>{{ cat.name }}</option>
                     {% endfor %}
                 </select>
             </div>
 
             <div class="mb-3">
                 <label class="form-label fw-600">Цена (₽)</label>
-                <input type="number" name="price" class="form-control" placeholder="0" min="0" required>
+                <input type="number" name="price" class="form-control" placeholder="0" min="0" value="{{ values.price if values else '' }}" required>
                 <div class="form-text">Оставьте 0, если отдаете бесплатно или это обмен.</div>
             </div>
 
             <div class="mb-3">
                 <label class="form-label fw-600">Описание</label>
-                <textarea name="description" class="form-control" rows="4" placeholder="Опишите состояние, автора, год издания или другие важные детали..." required></textarea>
+                <textarea name="description" class="form-control" rows="4" placeholder="Опишите состояние, автора, год издания или другие важные детали..." required>{{ values.description if values else '' }}</textarea>
             </div>
 
             <div class="mb-3">
                 <label class="form-label fw-600">Ссылка для связи</label>
-                <input type="text" name="contact" class="form-control" placeholder="Например: https://t.me/username" required>
+                <input type="text" name="contact" class="form-control" placeholder="Например: https://t.me/username" value="{{ values.contact if values else '' }}" required>
                 <div class="form-text">Полная ссылка на твой Telegram или ВКонтакте.</div>
             </div>
 
