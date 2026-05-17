@@ -41,6 +41,27 @@
   {% endif %}
 {% endwith %}
 
+<form method="GET" action="/" class="row g-2 mb-4 bg-white p-3 rounded-4 shadow-sm">
+    {% if request.args.get('category_id') %}
+    <input type="hidden" name="category_id" value="{{ request.args.get('category_id') }}">
+    {% endif %}
+
+    <div class="col-md-5">
+        <input type="text" name="search" class="form-control rounded-pill bg-light border-0 px-4 py-2"
+               placeholder="Поиск по названию..." value="{{ request.args.get('search', '') }}">
+    </div>
+    <div class="col-md-3">
+        <input type="number" name="max_price" class="form-control rounded-pill bg-light border-0 px-4 py-2"
+               placeholder="До (₽)" value="{{ request.args.get('max_price', '') }}" min="0">
+    </div>
+    <div class="col-md-2">
+        <button type="submit" class="btn btn-primary w-100 rounded-pill py-2 fw-bold">Найти</button>
+    </div>
+    <div class="col-md-2">
+        <a href="/" class="btn btn-outline-secondary w-100 rounded-pill py-2">Сбросить</a>
+    </div>
+</form>
+
 <div class="d-flex mb-4 overflow-auto pb-2">
     <a href="/" class="category-chip {% if not request.args.get('category_id') %}active{% endif %}">Все</a>
     {% for cat in categories %}

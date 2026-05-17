@@ -62,7 +62,9 @@
 
             <div class="ms-auto d-flex align-items-center">
                 {% if current_user.is_authenticated %}
-                    <span class="me-3 text-muted d-none d-sm-inline">Привет, <strong>{{ current_user.username }}</strong>!</span>
+                    <a href="/profile" class="text-decoration-none me-3 text-muted d-none d-sm-inline hover-primary">
+                        Привет, <strong class="text-dark">{{ current_user.username }}</strong>! ⚙️
+                    </a>
                     <a href="/add" class="btn btn-primary btn-sm rounded-pill px-3 me-2">+ Подать объявление</a>
                     <a href="/logout" class="btn btn-outline-danger btn-sm rounded-pill px-3">Выйти</a>
                 {% else %}

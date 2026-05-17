@@ -70,11 +70,57 @@ def logout():
 
 # --- ОСНОВНОЙ ФУНКЦИОНАЛ ---
 
+# ==========================================
+# 1. ГЛАВНАЯ СТРАНИЦА И ПОИСК
+# ==========================================
 @app.route('/')
 def index():
-    category_id = request.args.get('category_id', type=int)
-    products = Product.query.filter_by(category_id=category_id).all() if category_id else Product.query.all()
-    return render_template('index.html', products=products, categories=Category.query.all())
+    # Получаем параметры из URL (например: /?search=учебник&max_price=500)
+    category_id = request.args.get('category_id')
+    search_query = request.args.get('search')
+    max_price = request.args.get('max_price')
+
+    # Начинаем собирать запрос к БД
+    query = Product.query
+
+    if category_id:
+        query = query.filter_by(category_id=category_id)
+
+    if search_query:
+        # ilike ищет без учета регистра (учебник == Учебник)
+        query = query.filter(Product.title.ilike(f'%{search_query}%'))
+
+    if max_price and max_price.isdigit():
+        query = query.filter(Product.price <= int(max_price))
+
+    products = query.order_by(Product.id.desc()).all()
+    categories = Category.query.all()
+
+    return render_template('index.html', products=products, categories=categories)
+
+
+# ==========================================
+# 5. ЛИЧНЫЙ КАБИНЕТ (ПРОФИЛЬ)
+# ==========================================
+@app.route('/profile', methods=['GET', 'POST'])
+@login_required
+def profile():
+    if request.method == 'POST':
+        # Логика смены пароля
+        old_password = request.form.get('old_password')
+        new_password = request.form.get('new_password')
+
+        if check_password_hash(current_user.password_hash, old_password):
+            current_user.password_hash = generate_password_hash(new_password)
+            db.session.commit()
+            flash('Пароль успешно изменен!', 'success')
+        else:
+            flash('Неверный текущий пароль.', 'danger')
+        return redirect(url_for('profile'))
+
+    # Получаем только объявления текущего пользователя
+    user_products = Product.query.filter_by(user_id=current_user.id).order_by(Product.id.desc()).all()
+    return render_template('profile.html', products=user_products)
 
 
 @app.route('/product/<int:product_id>')
