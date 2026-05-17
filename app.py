@@ -312,5 +312,12 @@ if __name__ == '__main__':
         if not Category.query.first():
             db.session.add_all([Category(name="Учебники"), Category(name="Техника"), Category(name="Спорт")])
             db.session.commit()
-    #server_port = int(os.environ.get("PORT", 80))
-    app.run(host='0.0.0.0', port=8080)
+    env_port = os.environ.get("PORT")
+
+    # Если переменная пустая, равна '' или отсутствует — ставим 80
+    if not env_port or env_port == '':
+        server_port = 80
+    else:
+        server_port = int(env_port)
+
+    app.run(host='0.0.0.0', port=server_port)
