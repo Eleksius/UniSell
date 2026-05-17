@@ -1,4 +1,6 @@
 import os
+from doctest import debug
+
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, session
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -321,3 +323,4 @@ if __name__ == '__main__':
         server_port = int(env_port)
 
     app.run(host='0.0.0.0', port=server_port)
+    #app.run(debug=True)

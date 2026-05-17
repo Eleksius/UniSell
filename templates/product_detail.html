@@ -7,8 +7,8 @@
             <div id="productCarousel" class="carousel slide shadow-sm rounded-4 overflow-hidden" data-bs-ride="carousel" style="background-color: #f8f9fa;">
                 <div class="carousel-inner">
                     {% for img in product.images %}
-                    <div class="carousel-item {% if loop.first %}active{% endif %}" style="height: 450px;">
-                        <img src="{{ url_for('static', filename='uploads/' + img.filename) }}" class="d-block w-100 h-100" style="object-fit: contain;">
+                    <div class="carousel-item {% if loop.first %}active{% endif %} d-flex align-items-center justify-content-center" style="height: 450px; background-color: #f8f9fa;">
+                        <img src="{{ url_for('static', filename='uploads/' + img.filename) }}" class="d-block" style="max-width: 100%; max-height: 100%; width: auto; height: auto;">
                     </div>
                     {% endfor %}
                 </div>
