@@ -313,4 +313,4 @@ if __name__ == '__main__':
             db.session.add_all([Category(name="Учебники"), Category(name="Техника"), Category(name="Спорт")])
             db.session.commit()
     #server_port = int(os.environ.get("PORT", 80))
-    app.run(host='0.0.0.0')
+    app.run(host='0.0.0.0', port=8080)
