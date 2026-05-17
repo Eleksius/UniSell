@@ -119,11 +119,11 @@
             {% endif %}
 
             <a href="{{ url_for('product_detail', product_id=product.id) }}" class="product-link-wrapper">
-                <div class="img-container rounded-top overflow-hidden">
+                <div class="img-container rounded-top overflow-hidden" style="height: 220px; background-color: #f8f9fa;">
                     {% if product.images %}
-                    <img src="{{ url_for('static', filename='uploads/' + product.images[0].filename) }}" alt="{{ product.title }}" class="w-100" style="object-fit: cover; height: 220px !important;">
+                    <img src="{{ url_for('static', filename='uploads/' + product.images[0].filename) }}" alt="{{ product.title }}" style="width: 100%; height: 100%; object-fit: cover;">
                     {% else %}
-                    <div class="d-flex align-items-center justify-content-center text-muted" style="height: 220px; background-color: #eee;">Нет фото</div>
+                    <div class="d-flex align-items-center justify-content-center text-muted" style="height: 100%;">Нет фото</div>
                     {% endif %}
                 </div>
 
