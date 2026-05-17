@@ -312,4 +312,4 @@ if __name__ == '__main__':
         if not Category.query.first():
             db.session.add_all([Category(name="Учебники"), Category(name="Техника"), Category(name="Спорт")])
             db.session.commit()
-    app.run(debug=True)
+    app.run()
