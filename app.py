@@ -327,18 +327,19 @@ def toggle_favorite(product_id):
 def get_products_api():
     products = Product.query.all()
     output = []
-    for p in products:
-        p_data = {
-            'id': p.id,
-            'title': p.title,
-            'price': p.price,
-            'description': p.description,
-            'category': p.category.name,
-            'seller': p.seller.username,
-            'images': [url_for('static', filename='uploads/' + img.filename, _external=True) for img in p.images]
+
+    for product in products:
+        product_data = {
+            'id': product.id,
+            'title': product.title,
+            'price': product.price,
+            'views': product.views,
+            # Если у товара есть картинки, берем первую, иначе ставим пустую строку
+            'image_url': f"https://unisell-eleksius0.amvera.io/static/uploads/{product.images[0].filename}" if product.images else ""
         }
-        output.append(p_data)
-    return jsonify({'products': output})
+        output.append(product_data)
+
+    return jsonify(output)
 
 
 # ==========================================
